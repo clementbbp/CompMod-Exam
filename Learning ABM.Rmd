@@ -1,0 +1,137 @@
+---
+title: "Learning ABM"
+author: "Clement Peters"
+date: "5/1/2021"
+output: html_document
+---
+
+#Learning ABMs from youtube
+#Covid-19 Scenario
+
+```{r}
+#PART 1
+#Create a population of agents
+AgentGen1 <- function(nPop1, E0, I0){
+  
+  Agent1 <- data.frame(AgentNo = 1:nPop1,
+                     State = "S",
+                     Mixing = runif(nPop1,0,1),
+                     TimeE = 0,
+                     TimeI = 0,
+                     stringsAsFactors = FALSE)
+  
+  Agent1$State[1:E0] <- "E" #The first E0 people will be exposed
+  Agent1$TimeE[1:E0] <- rbinom(E0, 13, 0.5) + 1 #There's a 50/50 chance they were exposed for                                                   up to 14 days before the experiment started
+  Agent1$State[(E0+1):(E0 + I0)] <- "I" #The next I0 people will be assigned "I"
+  Agent1$TimeI[(E0+1):(E0 + I0)] <- rbinom(I0, 12, 0.5) + 1
+  
+  return(Agent1)
+}
+  
+Agent1 <- AgentGen1(nPop1 = 100, E0 = 5, I0 = 5)
+#nPop1 <-  1000
+
+
+
+ABM1 <- function(Agent1, par1, nTime1){
+  nPop1 <- nrow(Agent1)
+ 
+   #Output with placeholders
+  Out1 <- data.frame(S = rep(0, nTime1),
+                   E = rep(0, nTime1),
+                   I = rep(0, nTime1),
+                   R = rep(0, nTime1),
+                   D = rep(0, nTime1))
+  
+  #PART 2
+  #Move the people through time
+  for(k in 1:nTime1){
+    StateS1 <- (1:nPop1)[Agent1$State == "S"] #People who are susceptible
+    StateSE1 <- (1:nPop1)[Agent1$State == "S" | Agent1$State == "E"]
+    
+    for(i in StateS1){
+      #Determine whether they like to meet people or not
+      Mix1 <- Agent1$Mixing[i]
+      
+      #How many agents will they meet?
+      Meet1 <- round(Mix1 * par1$MaxMix, 0) + 1 #+1 ensures everybody meets                                                   at least 1 person
+      
+      #Grab agents they will meet
+      Meet2 <- sample(StateSE1, 
+                      Meet1, 
+                      replace = TRUE,
+                      prob = Agent1$Mixing[StateSE1])
+      
+      for(j in 1:length(Meet2)){
+        #Grab who they will meet
+        Meet1a <- Agent1[Meet2[j], ]
+        #If exposed, change state
+        if (Meet1a$State == "E"){
+          #Extra criteria for exposure
+          Urand1 <- runif(1,0,1)
+          if (Urand1 < par1$S2E){
+          Agent1$State[i] <- "E"
+          }
+        }
+      }
+    }
+    #Grab those who have been exposed, and index them forward (increment the time)
+      StateE1 <- (1:nPop1)[Agent1$State == "E"]
+      Agent1$TimeE[StateE1] = Agent1$TimeE[StateE1] + 1
+      StateE2 <- (1:nPop1)[Agent1$State == "E" & Agent1$TimeE > 14]
+      Agent1$State[StateE2] <- "R"
+      
+      #Add another group
+      # Grab those who COULD become sick
+      StateE3 <- (1:nPop1)[Agent1$State == "E" & Agent1$TimeE > 3]
+      for(i in StateE3){
+        #Randomly assign if they become sick or not
+        Urand1 <- runif(1,0,1)
+        if(Urand1 < par1$E2I){
+          Agent1$State[i] <- "I"
+        }
+      }
+    StateI1 <-  (1:nPop1)[Agent1$State == "I"] #Taking those who are sick
+    Agent1$TimeI[StateI1] = Agent1$TimeI[StateI1] + 1 #Incrementing them forward in time
+    
+    #Now to decide who recovers
+    StateI2 <- (1:nPop1)[Agent1$State == "I" & Agent1$TimeI > 14]
+    Agent1$State[StateI2] <- "R" #Those who are sick for more than 14 days are recovered
+    
+    #Some also die if they are sick for more than a certain time
+    StateI3 <- (1:nPop1)[Agent1$State == "I" & Agent1$TimeI < 15]
+    Agent1$State[StateI3] <- ifelse(
+      runif(length(StateI3), 0, 1) > par1$I2D, "I", "D")
+      
+      
+    #Tracking how many are exposed, ill, etc.
+    Out1$S[k] <- length(Agent1$State[Agent1$State == "S"])
+    Out1$E[k] <- length(Agent1$State[Agent1$State == "E"])
+    Out1$I[k] <- length(Agent1$State[Agent1$State == "I"])
+    Out1$R[k] <- length(Agent1$State[Agent1$State == "R"])
+    Out1$D[k] <- length(Agent1$State[Agent1$State == "D"])
+  }
+  return(Out1)
+}
+
+par1 <- data.frame(MaxMix = 10,
+                   S2E = 0.25,
+                   E2I = 0.1,
+                   I2D = 0.05)
+
+Agent1 <- AgentGen1(100, E0 = 5, I0 = 2)
+
+#Plotting etc.
+model1 <- ABM1(Agent1, par1, nTime1 = 25) 
+
+plot(1:25, model1$S, type = "l", col = "purple", ylim = c(0,100))
+lines(model1$E, col = "orange")
+lines(model1$I, col = "blue")
+lines(model1$R, col = "black")
+lines(model1$D, col = "red")
+
+
+
+
+```
+
