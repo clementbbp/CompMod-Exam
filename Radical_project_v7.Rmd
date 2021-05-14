@@ -37,7 +37,7 @@ output: html_document
  
 ```{r}
 ##Packages
-pacman::p_load(tidyverse, stringr, dplyr)
+pacman::p_load(tidyverse, stringr, dplyr, foreach, doMC)
 ```
  
         
@@ -46,9 +46,11 @@ pacman::p_load(tidyverse, stringr, dplyr)
 # f(d;D,δ) = D^δ/(d^δ+D^δ) Integration formula
   
 ```{r}
-D <- 0.5 #What should the max latitude be when the maximum distance in the attitude space can only be 2.83. It is realistic that a piece of information has 0.5 chance of being integrated, when it's theoretically as far away from the agent as possible? 
-d <- 0.5
-sharp <- 20
+D <- 0.4 #What should the max latitude be when the maximum distance in the attitude space can only be 2.83. It is realistic that a piece of information has 0.5 chance of being integrated, when it's theoretically as far away from the agent as possible? 
+
+DR <- 1 #Latitude of rejection
+d <- 1.1 #1/4 of max distance
+sharp <- 2
 #Max distance?
 # x1 <- -1
 # y1 <- -1
@@ -59,6 +61,7 @@ sharp <- 20
 
 D^sharp/(d^sharp+D^sharp)
 
+DR^sharp/(d^sharp+DR^sharp)
 
 #Define Agents
 GenPop <- function(nPop, nMemo, Lat_accept, Sharpness, nGroups){
@@ -70,8 +73,11 @@ Agent <- data.frame(AgentNo = 1:nPop, # agent number
                     Lat = Lat_accept, #latitude of acceptance
                     Sharpness = Sharpness,
                     Valence = 1,
-                    Empty = "Empty",
+                    No_of_Shares = 1,
                     stringsAsFactors = FALSE)
+
+#This column can't be zero because I use it for calculations later
+Agents$No_of_Shares <- as.numeric(Agents$No_of_Shares)
 
 #Assigning each agent to a group
 groups <- as.data.frame(matrix(0, nrow = nrow(Agent), ncol = 1))
@@ -89,8 +95,10 @@ sharing <- rename(sharing, Share = V1)
 
 for(a in 1:nrow(groups)){
   
-  #Each agent will have a value indicating how likely they are to share their point of     view to other agents of their group
-  sharing[a,] <- runif(1, 0, 2)
+  #Each agent will have a value indicating how likely they are to share their point of     view to other agents of their group. I assume most people will not be very likely to share, while a few will likely always share.
+  sharing[a,] <- rexp(1, 2)
+  
+  
 }
 
 #Building memory as dataframe with nMemo*2 column (x & y coordinates)
@@ -112,8 +120,13 @@ Agent <- cbind(Agent, sharing, groups, memory)
 return(Agent) 
   }
 
-          
+ 
+str(Agents)
 
+#range01 <- function(x){(x-min(x))/(max(x)-min(x))}
+range01 <- function(x){(x-0.001)/(2.828427-0.0001)}
+
+range01(2)
 
 Agents <- GenPop(nPop = 100, nMemo = 10, Lat_accept = 0.3, Sharpness = 2, nGroups = 5)
   Agents %>% 
@@ -131,8 +144,8 @@ Agents[,3] <- runif(nrow(Agents), -1, 1) #Random y coordinates
 
 
 
-ABM1 <- function(Agents, Iterations, Plot_freq, Bias){
-nPop <- nrow(Agents)
+ABM1 <- function(Agents, Iterations, Plot_freq, Bias, Social_posting){
+
   #Loop through time
   for(t in 1:Iterations){
     
@@ -154,7 +167,7 @@ nPop <- nrow(Agents)
     Info$yi[1] <- rnorm(1, 0.5, 1) #Positive bias
     
     #keeping the values between -1 and 1
-    while(Info$xi[1] < -1 | Info$xi[1] > 1 & Info$yi[1] < -1 | Info$yi[1] > 1){ 
+    while(Info$xi[1] < -1 | Info$xi[1] > 1 | Info$yi[1] < -1 | Info$yi[1] > 1){ 
     Info$xi[1] <- rnorm(1, 0.5, 1) #positive bias
     Info$yi[1] <- rnorm(1, 0.5, 1) #Positive bias
     
@@ -162,14 +175,13 @@ nPop <- nrow(Agents)
   }
     
     if(Bias == "Negative"){
-    #You could argue that the (mainstream) information should have a biased distribution      since the attitudinal space represents a certain topic, and mainstream media is         unlikely to widely change its opinion of it.
     
     #Creating biased information
     Info$xi[1] <- rnorm(1, -0.5, 1) #negative bias
     Info$yi[1] <- rnorm(1, -0.5, 1) #negative bias
     
     #keeping the values between -1 and 1
-    while(Info$xi[1] < -1 | Info$xi[1] > 1 & Info$yi[1] < -1 | Info$yi[1] > 1){ 
+    while(Info$xi[1] < -1 | Info$xi[1] > 1 | Info$yi[1] < -1 | Info$yi[1] > 1){ 
     Info$xi[1] <- rnorm(1, -0.5, 1) #negative bias
     Info$yi[1] <- rnorm(1, -0.5, 1) #negative bias
     
@@ -200,26 +212,220 @@ nPop <- nrow(Agents)
       
       #What is the chance they they will integrate
       RandNum <- runif(1,0,1)
-      if(is.na(Latitude_m)){
-        print("Latitude NA")
-      }
-      
-      if(is.na(Sharpness_m)){
-        print("Sharpness NA")
-      }
-      
-      if(is.na(RandNum)){
-        print("Randnum NA")
-      }
-      
-      if(is.na(Distance_main)){
-        print("Distance NA")
-      }
       
       if (RandNum < ((Latitude_m^Sharpness_m)/
                      (Distance_main^Sharpness_m+Latitude_m^Sharpness_m))){
         
-        # #If true, check if memory is full
+        Integrate_main(Agents = Agents, i = i) 
+        
+      } else{ #if information is not integrated normally, and if the distance is higher than the latitude of rejection, the attitudinal message is reversed, and then integrated, causing a contrast effect. This might only be relevant for social sharing.
+        
+        if(Distance_main > Lat_reject){
+          
+          #Flip the direction of the attitudinal message: contrast effect
+          Info$xi[1] <- Info$xi[1] * -1
+          Info$yi[1] <- Info$yi[1] * -1
+          
+          #Integrate:
+          Integrate_main(Agents = Agents, i = i)
+        }
+      } #Done integrating mainstream information 
+      
+     #Determine the absolute valency of agent "opinion" 
+      Agents$Valence[i] <- sqrt((Agents$x[i])^2 + (Agents$y[i])^2)
+      
+      #Turn Social_posting on/off
+      if(Social_posting == TRUE){
+      
+      #For every agent, see if they reach over the sharing threshold. Agents with high sharing value will have an easier time breaching the threshold  and will share more often.
+        
+      if(Agents$Valence[i] < Agents$Share[i]){
+        
+        #Index forward No_of_Shares
+        Agents$No_of_Shares[i] <-  Agents$No_of_Shares[i] + 1
+        
+        #If true, the agent will "post" it's location to members of it's group
+        Info$xi[2] <- Agents$x[i]
+        Info$yi[2] <- Agents$y[i]
+        
+        #Grab subset of agents who are in the same group as agent "i"
+        #Find a way to have each person in social group integrate agent i's information.
+        Social_group <- subset(Agents, Agents$Group == Agents$Group[i])
+        
+        #Removing agent "i" from subset, so she doesn't integrate her own information
+        Social_group <- Social_group %>% 
+          filter(AgentNo != i)
+        
+        #Loop through each agent in social group as they try to integrate the information
+        for(s in 1:nrow(Social_group)){
+          
+          #Find the acceptance latitude of agent
+          Latitude_social <- Social_group$Lat[s]
+      
+          #Find attitude sharpness of agent
+          Sharpness_social <- Social_group$Sharpness[s]
+          
+          #distance between agent and social post
+          Distance_social <- sqrt( ((Social_group$x[s] - Info$xi[2])^2) + 
+                                     ((Social_group$y[s] -   Info$yi[2])^2) )
+          
+           #Each agent tries to integrate
+          #What is the chance they they will integrate
+      RandNum_social <- runif(1,0,1)
+      if (RandNum_social <
+          Latitude_social^Sharpness_social/(Distance_social^Sharpness_social+Latitude_social^Sharpness_social)){
+        
+        #if true, integrate
+        Integrate_social(Agents = Agents, Social_group = Social_group, s = s)
+       
+      #Merge function doesn't work. But here I replace updated information (from Group) to original dataframe
+      Agent_names <- Social_group$AgentNo
+    for(x in Agent_names){
+      
+      #Check where the agent is in the original dataframe (AgentNo in Agents)
+      if(Social_group$AgentNo[x] %in% Agents$AgentNo){
+        #If true, replace old data new updated data
+        Agents[x,] <- Social_group[x,]
+    
+          }
+        } #Done updating (merging) dataframe
+      } else { #Adding boomerang effect
+        
+        if(Distance_social > Lat_reject){
+          
+          Info$xi[2] <- Info$xi[2] * -1
+          Info$yi[2] <- Info$yi[2] * -1
+          
+          Integrate_social(Agents = Agents, Social_group = Social_group, s = s)
+          
+          #Replace updated information (from Group) to original dataframe
+          Agent_names <- Social_group$AgentNo
+          for(x in Agent_names){
+            
+            #Check where the agent is in the original dataframe (AgentNo in Agents)
+            if(Social_group$AgentNo[x] %in% Agents$AgentNo){
+              #If true, replace old data new updated data
+              Agents[x,] <- Social_group[x,]
+              }
+        
+      } #Done looping through social group
+      
+      } # Valence > Share
+    } # Social_posting == TRUE
+  } # Done looping through agents
+  
+    #Visualization:
+    if(t %% Plot_freq == 0 | t == 1){
+
+    plot <- Agents %>%
+    ggplot(aes(x, y, color = Group)) + geom_jitter(aes(size = Share)) + xlim(-1, 1) + ylim(-1, 1) + theme(legend.position = "None") + ggtitle(paste("TickNo", t))
+                                                                                                                                            
+
+    print(plot)
+    }
+    
+  }
+  
+  return(Agents)
+}
+
+
+Lat_reject <- 0.8
+Agents2 <- GenPop(nPop = 100, nMemo = 10, Lat_accept = 0.4, Sharpness = 4, nGroups = 5)
+#Where do the agents start the simulation (default (0,0))
+Agents2[,2] <- runif(nrow(Agents2), -1, 1) #Random x coordinates
+Agents2[,3] <- runif(nrow(Agents2), -1, 1) #Random y coordinates
+Out1 <- ABM1(Agents = Agents2, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE)
+
+Out <- ABM1(Agents = Agents2, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE)
+
+Out1$No_of_Shares <- Out1$No_of_Shares + 1
+Out1 %>% 
+  ggplot(aes(No_of_Shares, color = Group)) + geom_density()
+
+Out1 %>% 
+  ggplot(aes(Valence, color = Group)) + geom_boxplot()
+
+Out1 %>% 
+  count(Group, sort = T)
+
+Lat_reject <- 1
+Out2 <- ABM1(Agents = Agents2, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = FALSE)
+
+
+mean(Out1$x)
+sd(Out1$x)
+sd(Out1$y)
+
+
+#For tomorrow: 
+# 1. Find a way to model trustworthiness of information, 
+# 2. figure out how Lorenz used information popularity, 
+# 3. find a way to turn on social media, 
+# 4. play with distributions of information valence (more likely positive/negative), 
+# 5. see if I can visually see the confirmation bias that is modeled into the integration theory
+# 6. Output??? Mean + sd of location over time?
+
+
+
+```
+  
+ 
+```{r}
+for(y in 1:20){
+  
+  if(y == 3){
+    
+    
+    
+    for(l in 1:10){
+      
+      if(l + y > 18){
+        
+        print("Ya dick")
+        
+        next
+      }
+    }
+    }
+}
+
+Agents10 <- Agents
+Agents10$`memory x1`[1] <- 0.5
+Agents10$`memory y1`[1] <- 0.3
+
+Agents10$`memory x1`[5] <- 0.5
+Agents10$`memory y1`[5] <- 0.3
+
+Social_group <- Agents10 %>% 
+  filter(Group == Group[1])
+Social_group$`memory x1`[1] <- 0.4234
+Social_group$`memory y1`[1] <- 0.5345
+column_names <- colnames(Agents)
+new <- merge(Agents, Social_group, by = "AgentNo", all.x = T, incomparables = 0)
+
+Agent_names <- Social_group$AgentNo
+for(x in Agent_names){
+  
+  if(Social_group$AgentNo[x] %in% Agents10$AgentNo){
+    #If true, replace old data new updated data
+    Agents10[x,] <- Social_group[x,]
+    
+  }
+}
+
+
+#This function flips the direction of the attitudinal message, and multiplies 
+        #it by the weighted distance. The further away the information gets, the more
+        #will it push the attitudinal message. This means all information will be integrated, but those that are rejected will have a contrast (boomerang) effect. Distances that are not too big will have more like a indifference "effect"... 
+        
+        Info$xi[1] <- (Info$xi[1] * -1) * (range01(Distance_main)+1)
+        Info$yi[1] <- (Info$yi[1] * -1) * (range01(Distance_main)+1) 
+        
+        
+Integrate_main <- function(Agents, i){
+  
+  # #If true, check if memory is full
          for(j in 10:ncol(Agents)){
 
         #Check if memory slot is open
@@ -283,46 +489,12 @@ nPop <- nrow(Agents)
         
         # Averaging the y-values over the number of memories (of value y)
         Agents$y[i] <- (sum(Agents[i,seq(11, ncol(Agents), 2)])/((nonZero-7)/2)) 
-        
-      } #Done integrating mainstream information 
-      
-      #Maybe put social networking here, after all agents have tried to integrate mainstream info
-      
-      #Determine the absolute valency of agent "opinion" (location)
-      Agents$Valence[i] <- sqrt((Agents$x[i])^2 + (Agents$y[i])^2)
-      
-      #For every agent, see if they reach over the sharing threshold
-      if(Agents$Valence[i] > Agents$Share[i]){
-        
-        #If true, the agent will "post" it's location to members of it's group
-        Info$xi[2] <- Agents$x[i]
-        Info$yi[2] <- Agents$y[i]
-        
-        #Grab subset of agents who are in the same group as agent "i"
-        #Find a way to have each person in social group integrate agent i's information. I already tried merging, but it gave an error. Keep trying!
-        Social_group <- subset(Agents, Agents$Group == Agents$Group[i])
-        
-        #Loop through each agent in social group as they try to integrate the information
-        for(s in 1:nrow(Social_group)){
-          
-          #Find the acceptance latitude of agent
-          Latitude_social <- Social_group$Lat[s]
-      
-          #Find attitude sharpness of agent
-          Sharpness_social <- Social_group$Sharpness[s]
-          
-          #distance between agent and social post
-          #Maybe agents "i" will also integrate his own "new" information. But this is a bug for later.
-          Distance_social <- sqrt( ((Social_group$x[s] - Info$xi[2])^2) + 
-                                     ((Social_group$y[s] -   Info$yi[2])^2) )
-          
-           #Each agent tries to integrate
-          #What is the chance they they will integrate
-      RandNum_social <- runif(1,0,1)
-      if (RandNum_social <
-          Latitude_social^Sharpness_social/(Distance_social^Sharpness_social+Latitude_social^Sharpness_social)){
-        
-        # #If true, check if memory is full
+       
+      }
+
+Integrate_social <- function(Agents, Social_group, s){
+  
+  # #If true, check if memory is full
          for(v in 10:ncol(Social_group)){
         
         #Check if memory slot is open
@@ -383,104 +555,9 @@ nPop <- nrow(Agents)
         # Averaging the y-values over the number of memories (of value y)
         Social_group$y[s] <- sum(Social_group[s,seq(11, ncol(Social_group), 2)])/((nonZero-7)/2) 
         } #Done integrating
-        #Merging doesn't work
-      #Agents <- merge(Agents, Social_group, by = "AgentNo") 
-      
-      Agent_names <- Social_group$AgentNo
-    for(x in Agent_names){
-      
-      #Check where the agent is in the original dataframe (AgentNo in Agents)
-      if(Social_group$AgentNo[x] %in% Agents$AgentNo){
-        #If true, replace old data new updated data
-        Agents[x,] <- Social_group[x,]
-    
-          }
-        } #Done updating (merging) dataframe
-      } #Done looping through social group
-    }
-  } # Done looping through agents
-  
-    #Visualization:
-    if(t %% Plot_freq == 0 | t == 1){
 
-    plot <- Agents %>%
-    ggplot(aes(x, y, color = Group)) + geom_jitter(aes(size = Share)) + xlim(-1, 1) + ylim(-1, 1) +
-      theme(legend.position = "None")
-
-    print(plot)
-    }
-    
-  }
-  
-  return(Agents)
- }
-
-Agents2 <- GenPop(nPop = 100, nMemo = 16, Lat_accept = 0.15, Sharpness = 2, nGroups = 2)
-#Where do the agents start the simulation (default (0,0))
-Agents2[,2] <- runif(nrow(Agents2), -1, 1) #Random x coordinates
-Agents2[,3] <- runif(nrow(Agents2), -1, 1) #Random y coordinates
-Out1 <- ABM1(Agents = Agents2, Iterations = 100, Plot_freq = 10, Bias = "Positive")
-mean(Out1$x)
-sd(Out1$x)
-sd(Out1$y)
-
-
-#For tomorrow: 
-# 1. Find a way to model trustworthiness of information, 
-# 2. figure out how Lorenz used information popularity, 
-# 3. find a way to turn on social media, 
-# 4. play with distributions of information valence (more likely positive/negative), 
-# 5. see if I can visually see the confirmation bias that is modeled into the integration theory
-# 6. Output??? Mean + sd of location over time?
-
-
-
-```
-  
- 
-```{r}
-for(y in 1:20){
-  
-  if(y == 3){
-    
-    
-    
-    for(l in 1:10){
-      
-      if(l + y > 18){
-        
-        print("Ya dick")
-        
-        next
-      }
-    }
-    }
-}
-
-Agents10 <- Agents
-Agents10$`memory x1`[1] <- 0.5
-Agents10$`memory y1`[1] <- 0.3
-
-Agents10$`memory x1`[5] <- 0.5
-Agents10$`memory y1`[5] <- 0.3
-
-Social_group <- Agents10 %>% 
-  filter(Group == Group[1])
-Social_group$`memory x1`[1] <- 0.4234
-Social_group$`memory y1`[1] <- 0.5345
-column_names <- colnames(Agents)
-new <- merge(Agents, Social_group, by = "AgentNo", all.x = T, incomparables = 0)
-
-Agent_names <- Social_group$AgentNo
-for(x in Agent_names){
-  
-  if(Social_group$AgentNo[x] %in% Agents10$AgentNo){
-    #If true, replace old data new updated data
-    Agents10[x,] <- Social_group[x,]
-    
-  }
-}
-
+       
+       
 ```
  
  

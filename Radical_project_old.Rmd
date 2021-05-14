@@ -70,8 +70,8 @@ Agent <- data.frame(AgentNo = 1:nPop, # agent number
                     y = 0, # x coordinate
                     Lat = Lat_accept, #latitude of acceptance
                     Sharpness = Sharpness,
-                    Valence = 0,
-                    Empty2 = "Empty2",
+                    Emptyx = "Empty",
+                    Emptyxx = "Empty",
                     stringsAsFactors = FALSE)
 
 #Assigning each agent to a group
@@ -91,7 +91,7 @@ sharing <- rename(sharing, Share = V1)
 for(a in 1:nrow(groups)){
   
   #Each agent will have a value indicating how likely they are to share their point of     view to other agents of their group
-  sharing[a,] <- runif(1, 0, 2)
+  sharing[a,] <- runif(1, 0, 1)
 }
 
 #Building memory as dataframe with nMemo*2 column (x & y coordinates)
@@ -117,14 +117,15 @@ return(Agent)
 
 
 Agents <- GenPop(nPop = 100, nMemo = 10, Lat_accept = 0.3, Sharpness = 4, nGroups = 5)
-  Agents %>% 
+Agents %>% 
   count(Group, sort = T)
+Agents$Emptyx <- as.factor(Agents$Emptyx)
+Agents$Emptyxx <- as.factor(Agents$Emptyxx)
 
-Info <- data.frame(Info_num = 1:2, # Two pieces of into: main and social
-                   xi = 0.5, # x coordinate for info
+Info <- data.frame(xi = 0.5, # x coordinate for info
                    yi = 0.3, # y coordinate for info
                    Trust = 0, # Trustworthiness score Parameter*
-                   TimeExist = 0)
+                   TimeExist = 0) 
 
 #Where do the agents start the simulation (default (0,0))
 Agents[,2] <- runif(nrow(Agents), -1, 1) #Random x coordinates
@@ -133,13 +134,14 @@ Agents[,3] <- runif(nrow(Agents), -1, 1) #Random y coordinates
 Iterations <- 1000
 
 
-ABM1 <- function(Agents, Iterations, Plot_freq, Bias){
+ABM1 <- function(Iterations, Plot_freq, Bias){
 
   #Loop through time
   for(t in 1:Iterations){
     
     #You could argue that the (mainstream) information should have a biased distribution      since the attitudinal space represents a certain topic, and mainstream media is         unlikely to widely change its opinion of it.
     if(Bias == "Neutral"){
+    
     
     #Creating neutral information
     Info$xi[1] <- runif(1, -1, 1) #positive bias
@@ -156,7 +158,7 @@ ABM1 <- function(Agents, Iterations, Plot_freq, Bias){
     Info$yi[1] <- rnorm(1, 0.5, 1) #Positive bias
     
     #keeping the values between -1 and 1
-    while(Info$xi[1] < -1 | Info$xi[1] > 1 & Info$yi[1] < -1 | Info$yi[1] > 1){ 
+    while(Info$xi < -1 | Info$xi > 1 & Info$yi < -1 | Info$yi > 1){ 
     Info$xi[1] <- rnorm(1, 0.5, 1) #positive bias
     Info$yi[1] <- rnorm(1, 0.5, 1) #Positive bias
     
@@ -164,18 +166,20 @@ ABM1 <- function(Agents, Iterations, Plot_freq, Bias){
   }
     
     if(Bias == "Negative"){
+    #You could argue that the (mainstream) information should have a biased distribution      since the attitudinal space represents a certain topic, and mainstream media is         unlikely to widely change its opinion of it.
     
     #Creating biased information
     Info$xi[1] <- rnorm(1, -0.5, 1) #positive bias
     Info$yi[1] <- rnorm(1, -0.5, 1) #Positive bias
     
     #keeping the values between -1 and 1
-    while(Info$xi[1] < -1 | Info$xi[1] > 1 & Info$yi[1] < -1 | Info$yi[1] > 1){ 
+    while(Info$xi < -1 | Info$xi > 1 & Info$yi < -1 | Info$yi > 1){ 
     Info$xi[1] <- rnorm(1, -0.5, 1) #positive bias
     Info$yi[1] <- rnorm(1, -0.5, 1) #Positive bias
     
     }
   }
+  
     
     #Loop through population
     for(i in 1:nrow(Agents)){
@@ -192,14 +196,14 @@ ABM1 <- function(Agents, Iterations, Plot_freq, Bias){
       Info_meet <- Info[1,]
       
       #What is the distance between agent and info
-      Distance_main <- sqrt( ((Agents$x[i] - Info$xi[1])^2) + ((Agents$y[i] - Info$yi[1])^2) )
+      Distance <- sqrt( ((Agents$x[i] - Info$xi)^2)+ ((Agents$y[i] - Info$yi)^2) )
       
       #What is the trustworthiness of info
       Trust <- Info$Trust[1]
       
       #What is the chance they they will integrate
       RandNum <- runif(1,0,1)
-      if (RandNum < Latitude^Sharpness/(Distance_main^Sharpness+Latitude^Sharpness)){
+      if (RandNum < Latitude^Sharpness/(Distance^Sharpness+Latitude^Sharpness)){
         
         # #If true, check if memory is full
          for(j in 10:ncol(Agents)){
@@ -208,8 +212,8 @@ ABM1 <- function(Agents, Iterations, Plot_freq, Bias){
          if(Agents[i,j] == 0){
         
            #If true, save the information to the empty memory space
-           Agents[i,j] <- Info$xi[1]
-           Agents[i,(j+1)] <- Info$yi[1]
+           Agents[i,j] <- Info$xi
+           Agents[i,(j+1)] <- Info$yi
            
            #Break out of loop and continue to next agent
            break
@@ -243,13 +247,17 @@ ABM1 <- function(Agents, Iterations, Plot_freq, Bias){
         x_coord <- column[[1]] # memory x coordinate column number
         y_coord <- column[[2]] # memory y coordinate column number
         
+        #To delete the memory I first have to subtract its value from the overall               coordinate, otherwise they will accumulate
+        # Agents$x[i] <- Agents$x[i] - Agents[i, x_coord]
+        # Agents$y[i] <- Agents$y[i] - Agents[i, y_coord]
+        
         #Reset agent position to 0 before updating memory
         Agents$x[i] <- 0
         Agents$y[i] <- 0
         
         # And now we save the new memory in the right location
-        Agents[i,][,x_coord] <- Info$xi[1]
-        Agents[i,][,y_coord] <- Info$yi[1]
+        Agents[i,][,x_coord] <- Info$xi
+        Agents[i,][,y_coord] <- Info$yi
         
         #Now memory is updated. Time to update location on attitude space
         
@@ -259,132 +267,31 @@ ABM1 <- function(Agents, Iterations, Plot_freq, Bias){
         nonZero <- sum(apply(Agents[i,], 2, function(c)sum(c!=0)))
         
         # Averaging the x-values over the number of memories (of value x)
-        Agents$x[i] <- sum(Agents[i,seq(10, ncol(Agents), 2)])/((nonZero-7)/2) # -7 because there are always those 3 non memory columns which are nonZero.
+        Agents$x[i] <- sum(Agents[i,seq(10, ncol(Agents), 2)])/((nonZero-7)/2) # -7 because there are always those 7 non memory columns which are nonZero.
         
         # Averaging the y-values over the number of memories (of value y)
         Agents$y[i] <- sum(Agents[i,seq(11, ncol(Agents), 2)])/((nonZero-7)/2) 
         
-      } ###Done integrating mainstream information###
-      
-      #Determine the absolute valency of agent "opinion" (location)
-      Agents$Valence[i] <- sqrt((Agents$x[i])^2 + (Agents$y[i])^2)
-      
-      #For every agent, see if they reach over the sharing threshold
-      if(Agents$Valence[i] > Agents$Share[i]){
-        
-        #If true, the agent will "post" it's location to members of it's group
-        Info$xi[2] <- Agents$x[i]
-        Info$yi[2] <- Agents$y[i]
-        
-        #Grab subset of agents who are in the same group as agent "i"
-        #Find a way to have each person in social group integrate agent i's information. I already tried merging, but it gave an error. Keep trying!
-        Social_group <- subset(Agents, Agents$Group == Agents$Group[i])
-        
-        #Each agent in the social group tries to integrate agent i's information
-        for(s in 1:nrow(Social_group)){
-          
-          #distance between agent and social post
-          Distance_social <- sqrt( ((Agents$x[s] - Info$xi[2])^2) + 
-                                     ((Agents$y[s] -   Info$yi[2])^2) )
-          
-          #Each agent tries to integrate
-          #What is the chance they they will integrate
-      RandNum <- runif(1,0,1)
-      if (RandNum < Latitude^Sharpness/(Distance_social^Sharpness+Latitude^Sharpness)){
-        
-        # #If true, check if memory is full
-         for(j in 10:ncol(Agents)){
-        
-        #Check if memory slot is open
-         if(Agents[s,j] == 0){
-        
-           #If true, save the information to the empty memory space
-           Agents[s,j] <- Info$xi[2]
-           Agents[s,(j+1)] <- Info$yi[2]
-           
-           #Break out of loop and continue to next agent
-           break
-  
-         }
         }
-  
-        #If full, sample memory space, and replace with new value (integrate)
-        
-        #which place in memory should the new info go
-        
-        #Sample which memory should be replaced. There are nMemo possible values
-        sample_num <- as.character(sample(1:((ncol(Agents)-9)/2), size=1))
-        
-        #Now i have the location (sample_num), I just need to plot in the new                   information
-        colnames_df <- colnames(Agents[s,])
-       
-        memory_to_replace <- as.data.frame(str_detect(colnames_df, sample_num))
-        
-        #Now I know the columns in which the new info should go. So I need to put it there
-        column <- numeric()
-        for(k in 1:nrow(memory_to_replace)){
-          if(memory_to_replace[k,] == TRUE){
-            
-            column <- c(column, k) # Saving the index of the columns
-            column <- as.list(column)
-            
-          }
-        }
-        x_coord <- column[[1]] # memory x coordinate column number
-        y_coord <- column[[2]] # memory y coordinate column number
-        
-        #Reset agent position to 0 before updating memory
-        Agents$x[s] <- 0
-        Agents$y[s] <- 0
-        
-        # And now we save the new memory in the right location
-        Agents[s,][,x_coord] <- Info$xi[2]
-        Agents[s,][,y_coord] <- Info$yi[2]
-        
-        #Now memory is updated. Time to update location on attitude space
-        
-        #Because the location of the agent is dependent on its memory, it will always be zero to begin with because almost all memories are "neutral". I need to average only over the non-zero memories.
-        
-        #Number of non-zero columns per agent
-        nonZero <- sum(apply(Agents[s,], 2, function(c)sum(c!=0)))
-        
-        # Averaging the x-values over the number of memories (of value x)
-        Agents$x[s] <- sum(Agents[s,seq(10, ncol(Agents), 2)])/((nonZero-7)/2) # -7 because there are always those 3 non memory columns which are nonZero.
-        
-        # Averaging the y-values over the number of memories (of value y)
-        Agents$y[s] <- sum(Agents[s,seq(11, ncol(Agents), 2)])/((nonZero-7)/2) 
-        
-        Agents <- merge(Agents, Social_group, by = "AgentNo")  
-      }
-      ?merge
-      }
     }
-   } 
     
-    #Visualization:
     if(t %% Plot_freq == 0 | t == 1){
+    #Visualization:
     
     plot <- Agents %>%
     ggplot(aes(x, y)) + geom_jitter() + xlim(-1, 1) + ylim(-1, 1)
   
-    print(plot)
+     print(plot)
     }
-  
-  return(Agents)
+     
   }
+  return(Agents)
 }
 
-Agents1 <- GenPop(nPop = 100, nMemo = 10, Lat_accept = 0.3, Sharpness = 4, nGroups = 5)
-
-#Where do the agents start the simulation (default (0,0))
-Agents1[,2] <- runif(nrow(Agents), -1, 1) #Random x coordinates
-Agents1[,3] <- runif(nrow(Agents), -1, 1) #Random y coordinates
-
-Out1 <- ABM1(Agents = Agents1, Iterations = 300, Plot_freq = 10, Bias = "Neutral")
+Out1 <- ABM1(200, 15, Bias = "Neutral")
 mean(Out1$x)
 sd(Out1$x)
 sd(Out1$y)
-
 
 
 #For tomorrow: 
