@@ -369,23 +369,24 @@ ABM1 <- function(Agents, Iterations, Plot_freq, Bias, Social_posting){
             if (Info$xi[1] >= 0){
             
             #pull valence in opposite direction
-            Info$xi[1] <- (Info$xi[1]) - (range01(Distance_main)) 
+            Info$xi[1] <- (Info$xi[1]) - ((range01(Distance_main))*2) 
             
           } else{ #If Info$xi[1] <= 0 (negative)
             
             #Pull valence in opposite direction
-            Info$xi[1] <- (Info$xi[1]) - (-(range01(Distance_main)))
+            Info$xi[1] <- (Info$xi[1]) - (-(range01(Distance_main))*2)
           }
           
           if (Info$yi[1] >= 0){
             
             #pull valence in opposite direction
-            Info$yi[1] <- (Info$yi[1]) - (range01(Distance_main)) 
             
-          } else{ #If Info$xi[1] <= 0 (negative)
+            Info$yi[1] <- (Info$yi[1]) - ((range01(Distance_main))*2) 
+            
+          } else{ #If Info$yi[1] <= 0 (negative)
             
             #Pull valence in opposite direction
-            Info$yi[1] <- (Info$yi[1]) - (-(range01(Distance_main)))
+            Info$yi[1] <- (Info$yi[1]) - (-(range01(Distance_main))*2)
           } #Done implementing boomerang effect
         
           #Integrate new and reversed information:
@@ -459,28 +460,28 @@ ABM1 <- function(Agents, Iterations, Plot_freq, Bias, Social_posting){
         } #Done updating (merging) dataframe
       } else { #Adding boomerang effect
         
-        if(Distance_social > Lat_reject){
+        if(Distance_social > Lat_reject_social){
           
           if (Info$xi[2] >= 0){
-            
+            Distance_social <- 0.5
             #pull valence in opposite direction
-            Info$xi[2] <- (Info$xi[2]) - (range01(Distance_social)) 
+            Info$xi[2] <- (Info$xi[2]) - ((range01(Distance_social))*2)
             
           } else{ #If Info$xi[2] <= 0 (negative)
             
             #Pull valence in opposite direction
-            Info$xi[2] <- (Info$xi[2]) - (-(range01(Distance_social)))
+            Info$xi[2] <- (Info$xi[2]) - (-(range01(Distance_social))*2)
           }
           
         # "Flip" y
           if (Info$yi[2] >= 0){
             
             #pull valence in opposite direction
-            Info$yi[2] <- (Info$yi[2]) - (range01(Distance_social)) 
+            Info$yi[2] <- (Info$yi[2]) - ((range01(Distance_social))*2) 
             
           } else{ #If Info$xi[1] <= 0 (negative)
             
-            Info$yi[2] <- (Info$yi[2]) - (-(range01(Distance_social)))
+            Info$yi[2] <- (Info$yi[2]) - (-(range01(Distance_social))*2)
           } #Done implementing boomerang effect
           
           Social_group <- Integrate_social(Agents = Agents, 
@@ -514,19 +515,19 @@ ABM1 <- function(Agents, Iterations, Plot_freq, Bias, Social_posting){
     plot <- Agents %>%
     ggplot(aes(x, y, color = Group)) + geom_point(aes(size = Share)) + xlim(-1, 1) + ylim(-1, 1) + theme(legend.position = "None") + ggtitle(paste("TickNo", t)) +
       scale_size(trans = 'reverse')
-
+    
     print(plot)
     }
-    
   } # Done looping through time
   Agents$No_of_Shares <- Agents$No_of_Shares - 1 # Subtracting one so it's the correct No_of_Shares
   
   return(Agents)
 }
+300/7
 
-
-Lat_reject <- 1 # Maybe it should be the double of lat of accept. Bigger latitude of acceptance means the agents will integrate more information they disagree with, and reinforce their current position. 
-Agents20 <- GenPop(nPop = 100, nMemo = 20, Lat_accept = 0.3, Sharpness = 5, nGroups = 5)
+Lat_reject <- 1.5
+Lat_reject_social <- 1.5# Maybe it should be the double of lat of accept. Bigger latitude of acceptance means the agents will integrate more information they disagree with, and reinforce their current position. 
+Agents20 <- GenPop(nPop = 300, nMemo = 20, Lat_accept = 0.3, Sharpness = 5, nGroups = 7)
 
 #Where do the agents start the simulation (default (0,0))
 Agents20[,2] <- runif(nrow(Agents20), -1, 1) #Random x coordinates
@@ -550,10 +551,18 @@ Out7 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positi
 
 Out8 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = FALSE) #nPop = 200, nMemo = 20, Lat_accept = 0.2, Sharpness = 5, nGroups = 7, lat reject 0.7
 
-Out9 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE) #nPop = 100, nMemo = 20, Lat_accept = 0.3, Sharpness = 5, nGroups = 5, bias positive
+Out9 <- ABM1(Agents = Agents20, Iterations = 400, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE) #nPop = 100, nMemo = 20, Lat_accept = 0.3, Sharpness = 5, nGroups = 5, bias positive
+
+Out10 <- ABM1(Agents = Agents20, Iterations = 200, Plot_freq = 10, Bias = "None", Social_posting = TRUE) #nPop = 100, nMemo = 20, Lat_accept = 0.3, Sharpness = 5, nGroups = 5, bias None
+
+Out11 <- ABM1(Agents = Agents20, Iterations = 300, Plot_freq = 10, Bias = "None", Social_posting = TRUE) #nPop = 100, nMemo = 15, Lat_accept = 0.3, Sharpness = 5, nGroups = 5, bias None
+
+Out12 <- ABM1(Agents = Agents20, Iterations = 300, Plot_freq = 10, Bias = "None", Social_posting = TRUE) #nPop = 300, nMemo = 20, Lat_accept = 0.3, Sharpness = 5, nGroups = 7, bias None
+
+Out13 <- ABM1(Agents = Agents20, Iterations = 300, Plot_freq = 10, Bias = "None", Social_posting = FALSE)
 
 
-Out2 %>%
+Out11 %>%
     ggplot(aes(x, y, color = Group)) + geom_point(aes(size = Share)) + xlim(-1, 1) + ylim(-1, 1) + theme(legend.position = "None") + ggtitle(paste("TickNo", 100)) +
       scale_size(trans = 'reverse')
 
@@ -567,20 +576,70 @@ Out3 %>%
 Out3 %>%
   count(Group, sort = T) #Group size might change how often a group shares.
 
-Out3 %>% 
+Out12 %>% 
   group_by(Group) %>% 
-  summarise(mean_no_share = mean(No_of_Shares))
+  summarise(mean_no_share = mean(No_of_Shares),
+            sd_no_share = sd(No_of_Shares),
+            mean_valence = mean(Valence),
+            sd_valence = sd(Valence))
+
+mean(Out12$Valence)
+mean(Out13$Valence)
+
+Out12 %>% 
+  group_by(Group) %>% 
+  summarise(mean_x = mean(x)) %>% 
+  ggplot(aes(x = Group, y = mean_x, fill = Group)) +
+  geom_bar(stat = "identity") + 
+    theme_classic() +
+    labs(
+        x = "Group",
+        y = "Mean X",
+        title = paste(
+            "Mean X by group"
+        )
+    )
+
+Out12 %>% 
+  group_by(Group) %>% 
+  summarise(mean_y = mean(y)) %>% 
+  ggplot(aes(x = Group, y = mean_y, fill = Group)) +
+  geom_bar(stat = "identity") + 
+    theme_classic() +
+    labs(
+        x = "Group",
+        y = "Mean Y",
+        title = paste(
+            "Mean Y by group"
+        )
+    )
+
+Out13 %>% 
+  group_by(Group) %>% 
+  summarise(mean_valence = mean(Valence)) %>% 
+  ggplot(aes(x = Group, y = mean_valence, fill = Group)) +
+  geom_bar(stat = "identity") + 
+    theme_classic() +
+    labs(
+        x = "Group",
+        y = "Mean Valence",
+        title = paste(
+            "Mean valence by group"
+        )
+    )
 
 Out3 %>% 
   ggplot(aes(Valence, color = Group)) + geom_boxplot()
 
-Out3 %>% 
-  ggplot(aes(y, color = Group)) + geom_boxplot()
+Out9 %>% 
+  ggplot(aes(x, color = Group)) + geom_boxplot()
+
+Out13 %>% 
+  ggplot(aes(x)) + geom_density() + ggtitle("Clustering of agents across X")
+
+Out13 %>% 
+  ggplot(aes(y)) + geom_density() + ggtitle("Clustering of agents across Y")
   
-
-Lat_reject <- 1
-Out2 <- ABM1(Agents = Agents2, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = FALSE)
-
 
 mean(Out1$x)
 sd(Out1$x)
