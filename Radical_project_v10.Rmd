@@ -5,36 +5,7 @@ date: "5/1/2021"
 output: html_document
 ---
 
-#What do I need to do:
-
-1. Define Agents
-  1.1 What types. Agents + info-bits
-  1.2 What parameters do they have
-    1.2.1 *Agents*
-        Memory
-            How large is memory? Parameter*
-        Location in attitude space (xy coordinate)
-            This is the mean of the attitudes they hold in memory
-            I can make a parameter specifying how closely to the middle the population               will start
-    1.2.2 *Info bit*
-        Lifespan
-            Should be one tick. If they are not integrated they disappear
-        Location in attitude space
-            Should be random, with a distribution of -1 to 1 on both axis. This will
-            represent central information output. Could also be programmed with a                   certain bias, which might represent central information better.
-        Trustworthiness score
-            How trustworthy is the information perceived generally?
-  1.3 What will they do each tick?
-    1.3.1 Agents will try to integrate the infobit which is created. Success will depend
-        on the information integration formula which gives a probability of being inte-
-        grated. *If the info-bit is integrated, they will move closer to that info-bit in         attitude space by averaging and updating their memory*
-    1.3.2 If social media is turned on, then the agents will have a probability to share
-          their location in attitude space for others to integrate
-    1.3.3 Info bits will disappear after one tick
-    1.3.4
-        
-      
- 
+#Loading Packages
 ```{r}
 ##Packages
 pacman::p_load(tidyverse, stringr, dplyr, brms, bayesplot,
@@ -42,8 +13,9 @@ pacman::p_load(tidyverse, stringr, dplyr, brms, bayesplot,
                lme4)
 ```
 
-#Functions for use later: 
+#Defining functions:
 ```{r}
+
 Integrate_main <- function(Agents, i, Info){
   
   # #If true, check if memory is full
@@ -178,28 +150,7 @@ Integrate_social <- function(Agents, Social_group, s, Info){
         
         return(Social_group)
         } #Done integrating
-```        
-  
-#d=√((x2−x1)^2+(y2−y1)^2) the distance between two points
-# f(d;D,δ) = D^δ/(d^δ+D^δ) Integration formula
-  
-```{r}
-D <- 0.4 #What should the max latitude be when the maximum distance in the attitude space can only be 2.83. It is realistic that a piece of information has 0.5 chance of being integrated, when it's theoretically as far away from the agent as possible? 
 
-DR <- 1 #Latitude of rejection
-d <- 1.1 #1/4 of max distance
-sharp <- 2
-#Max distance?
-# x1 <- -1
-# y1 <- -1
-# 
-# x2 <- 1
-# y2 <- 1
-# sqrt( ((x2-x1)^2)+((y2-y1)^2)) # = 2.828427
-
-D^sharp/(d^sharp+D^sharp)
-
-DR^sharp/(d^sharp+DR^sharp)
 
 #Define Agents
 GenPop <- function(nPop, nMemo, Lat_accept, Sharpness, nGroups){
@@ -233,10 +184,8 @@ sharing <- rename(sharing, Share = V1)
 
 for(a in 1:nrow(groups)){
   
-  #Each agent will have a value indicating how likely they are to share their point of     view to other agents of their group. I assume most people will not be very likely to share, while a few will likely always share.
-  sharing[a,] <- runif(1,0,2) # OR rexp(1, 2)
-  
-  
+  #Each agent will have a value indicating how likely they are to share their point of     view to other agents of their group.
+  sharing[a,] <- runif(1,0,2)
 }
 
 #Building memory as dataframe with nMemo*2 column (x & y coordinates)
@@ -258,35 +207,17 @@ Agent <- cbind(Agent, sharing, groups, memory)
 return(Agent) 
   }
 
- 
-str(Agents)
 
 #range01 <- function(x){(x-min(x))/(max(x)-min(x))}
 range01 <- function(x){(x-0.0001)/(2.828427-0.0001)}
 
-range01()
-#I need a function which flips the direction of the infobit, but when the distance is small, its effect should be heavily reduced, but when distance is far, effect should be bigger. 
-
-
-Agents <- GenPop(nPop = 100, nMemo = 10, Lat_accept = 0.3, Sharpness = 2, nGroups = 5)
-
-Agents %>% 
-  ggplot(aes(Share)) + geom_density()
-  
-Agents %>% 
-  count(Group, sort = T)
-
+#Creating info dataframe
 Info <- data.frame(Info_num = 1:2, # Two pieces of into: main and social
-                   xi = 0.5, # x coordinate for info
-                   yi = 0.3, # y coordinate for info
-                   Trust = 0, # Trustworthiness score Parameter*
-                   TimeExist = 0)
-
-#Where do the agents start the simulation (default (0,0))
-Agents[,2] <- runif(nrow(Agents), -1, 1) #Random x coordinates
-Agents[,3] <- runif(nrow(Agents), -1, 1) #Random y coordinates
+                   xi = 0, # x coordinate for info
+                   yi = 0) # y coordinate for info
 
 
+#Defining ABM function
 ABM1 <- function(Agents, Iterations, Plot_freq, Bias, Social_posting){
 
   #Loop through time
@@ -329,8 +260,8 @@ ABM1 <- function(Agents, Iterations, Plot_freq, Bias, Social_posting){
     Info$yi[1] <- rnorm(1, -0.5, 1) #negative bias
     
     }
-  }
-  
+    }
+    
     #Loop through population
     for(i in sample(c(1:nrow(Agents)))){ #loop in random order
       
@@ -361,11 +292,11 @@ ABM1 <- function(Agents, Iterations, Plot_freq, Bias, Social_posting){
                                  i = i,
                                  Info = Info) 
         
-      } else{ #if information is not integrated normally, and if the distance is higher than the latitude of rejection, the attitudinal message is reversed, and then integrated, causing a contrast effect. This might only be relevant for social sharing.
+      } else{ #Contrast effect:
         
         if(Distance_main > Lat_reject){
           
-          #Flip the direction of the attitudinal message: contrast effect
+        #Check if information is positive or negative, then pull in opposite direction:
             if (Info$xi[1] >= 0){
             
             #pull valence in opposite direction
@@ -377,6 +308,7 @@ ABM1 <- function(Agents, Iterations, Plot_freq, Bias, Social_posting){
             Info$xi[1] <- (Info$xi[1]) - (-(range01(Distance_main))*2)
           }
           
+          #Same thing for Y:
           if (Info$yi[1] >= 0){
             
             #pull valence in opposite direction
@@ -403,7 +335,7 @@ ABM1 <- function(Agents, Iterations, Plot_freq, Bias, Social_posting){
       if(Social_posting == TRUE){
       
       #For every agent, see if they reach over the sharing threshold. Agents with high sharing value will have an easier time breaching the threshold  and will share more often.
-        
+        #Check if agent valency exceeds sharing threshold:
       if(Agents$Valence[i] > Agents$Share[i]){
         
         #Index forward No_of_Shares
@@ -460,7 +392,7 @@ ABM1 <- function(Agents, Iterations, Plot_freq, Bias, Social_posting){
         } #Done updating (merging) dataframe
       } else { #Adding boomerang effect
         
-        if(Distance_social > Lat_reject_social){
+        if(Distance_social > Lat_reject){
           
           if (Info$xi[2] >= 0){
             Distance_social <- 0.5
@@ -523,8 +455,181 @@ ABM1 <- function(Agents, Iterations, Plot_freq, Bias, Social_posting){
   
   return(Agents)
 }
-300/7
+```
 
+#Playing around with probability function
+```{r}
+D <- 0.5 #Latitude of acceptance: The distance at which probability of information is 50%
+
+DR <- 1 #Latitude of rejection: The distance at which information exceeding this amount will be reversed and then integrated
+
+d <- 0.4 #Distance between agent and information
+sharp <- 5 #The speed at which probability of integration will drop to zero around the latitude of acceptance
+
+#Max distance?
+# x1 <- -1
+# y1 <- -1
+# 
+# x2 <- 1
+# y2 <- 1
+#Distance function
+# sqrt( ((x2-x1)^2)+((y2-y1)^2)) # = 2.828427
+
+D^sharp/(d^sharp+D^sharp)
+
+```
+
+###RUNNING MODEL TIME
+```{r}
+set.seed(234)
+#The first model will get some parameters which are copied to all models to reduce the stochastic nature of sampling. The parameters are: start location (x & y), sharing threshold and Group. They will be copied manually because they are coded into the GenPop function.
+
+#MODEL 1:
+Lat_reject <- 0.5
+
+Agents_mod1 <- GenPop(nPop = 500, nMemo = 20, Lat_accept = 0.3, Sharpness = 5, nGroups = 10)
+
+#Where do the agents start the simulation (default (0,0))
+Agents_mod1[,2] <- runif(nrow(Agents_mod1), -1, 1) #Random x coordinates
+Agents_mod1[,3] <- runif(nrow(Agents_mod1), -1, 1) #Random y coordinates
+
+#After generating random starting positions for the Agents, also make the first memory equal to that starting position, so the first memory they integrate doesn't have too much influence, and they "remember" where they started.
+Agents_mod1[,10] <- Agents_mod1[,2] #memory 1x
+Agents_mod1[,11] <- Agents_mod1[,3] #memory 1y
+
+model1 <- ABM1(Agents = Agents_mod1, Iterations = 400, Plot_freq = 50, Bias = "None", Social_posting = FALSE)
+
+#MODEL 2:
+Lat_reject <- 1
+
+Agents_mod2 <- GenPop(nPop = 500, nMemo = 20, Lat_accept = 0.5, Sharpness = 5, nGroups = 10)
+
+#Where do the agents start the simulation (default (0,0))
+Agents_mod2[,2] <- Agents_mod1[,2] #Random x coordinates (from model 1)
+Agents_mod2[,3] <- Agents_mod1[,3] #Random y coordinates (from model 1)
+
+Agents_mod2[,10] <- Agents_mod2[,2] #memory 1x
+Agents_mod2[,11] <- Agents_mod2[,3] #memory 1y
+
+Agents_mod2[,8] <- Agents_mod1[,8] #Share column (from model 1)
+
+Agents_mod2[,9] <- Agents_mod1[,9] #Group column (from model 1)
+
+model2 <- ABM1(Agents = Agents_mod2, Iterations = 400, Plot_freq = 50, Bias = "None", Social_posting = FALSE)
+
+#MODEL 3:
+Lat_reject <- 1.5
+
+Agents_mod3 <- GenPop(nPop = 500, nMemo = 20, Lat_accept = 0.7, Sharpness = 5, nGroups = 10)
+
+#Where do the agents start the simulation (default (0,0))
+Agents_mod3[,2] <- Agents_mod1[,2] #Random x coordinates (from model 1)
+Agents_mod3[,3] <- Agents_mod1[,3] #Random y coordinates (from model 1)
+
+Agents_mod3[,10] <- Agents_mod3[,2] #memory 1x
+Agents_mod3[,11] <- Agents_mod3[,3] #memory 1y
+
+Agents_mod3[,8] <- Agents_mod1[,8] #Share column (from model 1)
+
+Agents_mod3[,9] <- Agents_mod1[,9] #Group column (from model 1)
+
+model3 <- ABM1(Agents = Agents_mod3, Iterations = 400, Plot_freq = 50, Bias = "None", Social_posting = FALSE)
+
+#MODEL 4:
+Lat_reject <- 2
+
+Agents_mod4 <- GenPop(nPop = 500, nMemo = 20, Lat_accept = 1, Sharpness = 5, nGroups = 10)
+
+#Where do the agents start the simulation (default (0,0))
+Agents_mod4[,2] <- Agents_mod1[,2] #Random x coordinates (from model 1)
+Agents_mod4[,3] <- Agents_mod1[,3] #Random y coordinates (from model 1)
+
+Agents_mod4[,10] <- Agents_mod4[,2] #memory 1x
+Agents_mod4[,11] <- Agents_mod4[,3] #memory 1y
+
+Agents_mod4[,8] <- Agents_mod1[,8] #Share column (from model 1)
+
+Agents_mod4[,9] <- Agents_mod1[,9] #Group column (from model 1)
+
+model4 <- ABM1(Agents = Agents_mod4, Iterations = 400, Plot_freq = 50, Bias = "None", Social_posting = FALSE)
+
+#MODEL 5:
+Lat_reject <- 0.5
+
+Agents_mod5 <- GenPop(nPop = 500, nMemo = 20, Lat_accept = 0.3, Sharpness = 5, nGroups = 10)
+
+#Where do the agents start the simulation (default (0,0))
+Agents_mod5[,2] <- Agents_mod1[,2] #Random x coordinates (from model 1)
+Agents_mod5[,3] <- Agents_mod1[,3] #Random y coordinates (from model 1)
+
+Agents_mod5[,10] <- Agents_mod5[,2] #memory 1x
+Agents_mod5[,11] <- Agents_mod5[,3] #memory 1y
+
+Agents_mod5[,8] <- Agents_mod1[,8] #Share column (from model 1)
+
+Agents_mod5[,9] <- Agents_mod1[,9] #Group column (from model 1)
+
+model5 <- ABM1(Agents = Agents_mod5, Iterations = 400, Plot_freq = 50, Bias = "None", Social_posting = TRUE)
+
+#MODEL 6:
+Lat_reject <- 1
+
+Agents_mod6 <- GenPop(nPop = 500, nMemo = 20, Lat_accept = 0.5, Sharpness = 5, nGroups = 10)
+
+#Where do the agents start the simulation (default (0,0))
+Agents_mod6[,2] <- Agents_mod1[,2] #Random x coordinates (from model 1)
+Agents_mod6[,3] <- Agents_mod1[,3] #Random y coordinates (from model 1)
+
+Agents_mod6[,10] <- Agents_mod6[,2] #memory 1x
+Agents_mod6[,11] <- Agents_mod6[,3] #memory 1y
+
+Agents_mod6[,8] <- Agents_mod1[,8] #Share column (from model 1)
+
+Agents_mod6[,9] <- Agents_mod1[,9] #Group column (from model 1)
+
+model6 <- ABM1(Agents = Agents_mod6, Iterations = 400, Plot_freq = 50, Bias = "None", Social_posting = TRUE)
+
+#MODEL 7:
+Lat_reject <- 1.5
+
+Agents_mod7 <- GenPop(nPop = 500, nMemo = 20, Lat_accept = 0.7, Sharpness = 5, nGroups = 10)
+
+#Where do the agents start the simulation (default (0,0))
+Agents_mod7[,2] <- Agents_mod1[,2] #Random x coordinates (from model 1)
+Agents_mod7[,3] <- Agents_mod1[,3] #Random y coordinates (from model 1)
+
+Agents_mod7[,10] <- Agents_mod7[,2] #memory 1x
+Agents_mod7[,11] <- Agents_mod7[,3] #memory 1y
+
+Agents_mod7[,8] <- Agents_mod1[,8] #Share column (from model 1)
+
+Agents_mod7[,9] <- Agents_mod1[,9] #Group column (from model 1)
+
+model7 <- ABM1(Agents = Agents_mod7, Iterations = 400, Plot_freq = 50, Bias = "None", Social_posting = TRUE)
+
+#MODEL 8:
+Lat_reject <- 2
+
+Agents_mod8 <- GenPop(nPop = 500, nMemo = 20, Lat_accept = 1, Sharpness = 5, nGroups = 10)
+
+#Where do the agents start the simulation (default (0,0))
+Agents_mod8[,2] <- Agents_mod1[,2] #Random x coordinates (from model 1)
+Agents_mod8[,3] <- Agents_mod1[,3] #Random y coordinates (from model 1)
+
+Agents_mod8[,10] <- Agents_mod8[,2] #memory 1x
+Agents_mod8[,11] <- Agents_mod8[,3] #memory 1y
+
+Agents_mod8[,8] <- Agents_mod1[,8] #Share column (from model 1)
+
+Agents_mod8[,9] <- Agents_mod1[,9] #Group column (from model 1)
+
+model8 <- ABM1(Agents = Agents_mod8, Iterations = 400, Plot_freq = 50, Bias = "None", Social_posting = TRUE)
+
+```
+
+
+#Random analyses
+```{r}
 Lat_reject <- 1.5
 Lat_reject_social <- 1.5# Maybe it should be the double of lat of accept. Bigger latitude of acceptance means the agents will integrate more information they disagree with, and reinforce their current position. 
 Agents20 <- GenPop(nPop = 300, nMemo = 20, Lat_accept = 0.3, Sharpness = 5, nGroups = 7)
@@ -533,48 +638,26 @@ Agents20 <- GenPop(nPop = 300, nMemo = 20, Lat_accept = 0.3, Sharpness = 5, nGro
 Agents20[,2] <- runif(nrow(Agents20), -1, 1) #Random x coordinates
 Agents20[,3] <- runif(nrow(Agents20), -1, 1) #Random y coordinates
 
-Out <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "None", Social_posting = TRUE) # nmemo 20, ngroups 7, bias none, npop 100, lat reject 0.7, lat accept 0.3
-
-Out1 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "None", Social_posting = TRUE) # nmemo 20, ngroups 4, bias none, npop 100, lat reject 0.7, lat accept 0.3, iterations 100, sharpness 20
-
-Out2 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE) # nmemo 20, ngroups 4, bias Positive, npop 100, lat reject 0.7, lat accept 0.3, iterations 100, sharpness 20
-
-Out3 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE) # nmemo 20, ngroups 5, bias Positive, npop 100, lat reject 1, lat accept 0.3, iterations 100, sharpness 5
-
-Out4 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE) # nmemo 10, ngroups 10, bias Positive, npop 200, lat reject 1, lat accept 0.5, iterations 100
-
-Out5 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE) #nPop = 200, nMemo = 20, Lat_accept = 0.3, Sharpness = 5, nGroups = 7, lat reject 0.7
-
-Out6 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE) #nPop = 200, nMemo = 20, Lat_accept = 0.6, Sharpness = 5, nGroups = 7, lat reject 0.7
-
-Out7 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE) #nPop = 200, nMemo = 20, Lat_accept = 0.2, Sharpness = 5, nGroups = 7, lat reject 0.7
-
-Out8 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = FALSE) #nPop = 200, nMemo = 20, Lat_accept = 0.2, Sharpness = 5, nGroups = 7, lat reject 0.7
-
-Out9 <- ABM1(Agents = Agents20, Iterations = 400, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE) #nPop = 100, nMemo = 20, Lat_accept = 0.3, Sharpness = 5, nGroups = 5, bias positive
-
-Out10 <- ABM1(Agents = Agents20, Iterations = 200, Plot_freq = 10, Bias = "None", Social_posting = TRUE) #nPop = 100, nMemo = 20, Lat_accept = 0.3, Sharpness = 5, nGroups = 5, bias None
-
-Out11 <- ABM1(Agents = Agents20, Iterations = 300, Plot_freq = 10, Bias = "None", Social_posting = TRUE) #nPop = 100, nMemo = 15, Lat_accept = 0.3, Sharpness = 5, nGroups = 5, bias None
-
-Out12 <- ABM1(Agents = Agents20, Iterations = 300, Plot_freq = 10, Bias = "None", Social_posting = TRUE) #nPop = 300, nMemo = 20, Lat_accept = 0.3, Sharpness = 5, nGroups = 7, bias None
-
-Out13 <- ABM1(Agents = Agents20, Iterations = 300, Plot_freq = 10, Bias = "None", Social_posting = FALSE)
+#After generating random starting positions for the Agents, also make the first memory equal to that starting position, so the first memory they integrate doesn't have too much influence, and they "remember" where they started.
+Agents20[,10] <- Agents20[,2] #memory 1x
+Agents20[,11] <- Agents20[,3] #memory 1y
 
 
 Out11 %>%
-    ggplot(aes(x, y, color = Group)) + geom_point(aes(size = Share)) + xlim(-1, 1) + ylim(-1, 1) + theme(legend.position = "None") + ggtitle(paste("TickNo", 100)) +
+    ggplot(aes(x, y, color = Group)) + geom_point(aes(size = Share)) + xlim(-1, 1) + ylim(-1, 1) +  ggtitle(paste("TickNo", 100)) +
       scale_size(trans = 'reverse')
 
 Out3 %>% 
   ggplot(aes(No_of_Shares, color = Group)) + geom_density()
 
 
-Out3 %>% 
+Out11 %>% 
   ggplot(aes(Share, color = Group)) + geom_density()
 
-Out3 %>%
-  count(Group, sort = T) #Group size might change how often a group shares.
+Agents_mod1 %>%
+  count(Group, sort = T) %>%  #Group size + density might affect radicalization.
+  mutate(group_density = n/sum(n))
+  
 
 Out12 %>% 
   group_by(Group) %>% 
@@ -582,6 +665,11 @@ Out12 %>%
             sd_no_share = sd(No_of_Shares),
             mean_valence = mean(Valence),
             sd_valence = sd(Valence))
+
+Out12 %>% 
+  group_by(Group) %>% 
+  summarise(group_size = count(AgentNo))
+  
 
 mean(Out12$Valence)
 mean(Out13$Valence)
@@ -647,20 +735,12 @@ sd(Out1$y)
 
 
 #For tomorrow: 
-# 1. Find a way to model trustworthiness of information, 
-# 2. figure out how Lorenz used information popularity, 
-# 3. find a way to turn on social media, 
-# 4. play with distributions of information valence (more likely positive/negative), 
-# 5. see if I can visually see the confirmation bias that is modeled into the integration theory
-# 6. Output??? Mean + sd of location over time?
-
-
 
 ```
  
 
   
- 
+#Bayesian analysis
 ```{r}
 
 ##Doing analysis on several datasets
@@ -752,6 +832,7 @@ mcmc_rank_overlay(m1_post,
 
 ```
 
+#Frequentist analysis
 ```{r}
 ##Frequentist stats
 
@@ -781,5 +862,37 @@ df <- rename(df, nonSocial = Valence.1)
 t.test(Valence ~ Social_posting, paired = T, data = SP_contrast, var.equal = T)
 
 
+```
+
+#Old models
+```{r}
+###OLD MODELS###
+Out <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "None", Social_posting = TRUE) # nmemo 20, ngroups 7, bias none, npop 100, lat reject 0.7, lat accept 0.3
+
+Out1 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "None", Social_posting = TRUE) # nmemo 20, ngroups 4, bias none, npop 100, lat reject 0.7, lat accept 0.3, iterations 100, sharpness 20
+
+Out2 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE) # nmemo 20, ngroups 4, bias Positive, npop 100, lat reject 0.7, lat accept 0.3, iterations 100, sharpness 20
+
+Out3 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE) # nmemo 20, ngroups 5, bias Positive, npop 100, lat reject 1, lat accept 0.3, iterations 100, sharpness 5
+
+Out4 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE) # nmemo 10, ngroups 10, bias Positive, npop 200, lat reject 1, lat accept 0.5, iterations 100
+
+Out5 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE) #nPop = 200, nMemo = 20, Lat_accept = 0.3, Sharpness = 5, nGroups = 7, lat reject 0.7
+
+Out6 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE) #nPop = 200, nMemo = 20, Lat_accept = 0.6, Sharpness = 5, nGroups = 7, lat reject 0.7
+
+Out7 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE) #nPop = 200, nMemo = 20, Lat_accept = 0.2, Sharpness = 5, nGroups = 7, lat reject 0.7
+
+Out8 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = FALSE) #nPop = 200, nMemo = 20, Lat_accept = 0.2, Sharpness = 5, nGroups = 7, lat reject 0.7
+
+Out9 <- ABM1(Agents = Agents20, Iterations = 400, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE) #nPop = 100, nMemo = 20, Lat_accept = 0.3, Sharpness = 5, nGroups = 5, bias positive
+
+Out10 <- ABM1(Agents = Agents20, Iterations = 200, Plot_freq = 10, Bias = "None", Social_posting = TRUE) #nPop = 100, nMemo = 20, Lat_accept = 0.3, Sharpness = 5, nGroups = 5, bias None
+
+Out11 <- ABM1(Agents = Agents20, Iterations = 300, Plot_freq = 10, Bias = "None", Social_posting = TRUE) #nPop = 100, nMemo = 15, Lat_accept = 0.3, Sharpness = 5, nGroups = 5, bias None
+
+Out12 <- ABM1(Agents = Agents20, Iterations = 300, Plot_freq = 10, Bias = "None", Social_posting = TRUE) #nPop = 300, nMemo = 20, Lat_accept = 0.3, Sharpness = 5, nGroups = 7, bias None
+
+Out13 <- ABM1(Agents = Agents20, Iterations = 300, Plot_freq = 10, Bias = "None", Social_posting = FALSE)
 ```
 
