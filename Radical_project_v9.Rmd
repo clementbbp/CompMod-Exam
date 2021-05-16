@@ -366,10 +366,29 @@ ABM1 <- function(Agents, Iterations, Plot_freq, Bias, Social_posting){
         if(Distance_main > Lat_reject){
           
           #Flip the direction of the attitudinal message: contrast effect
-          Info$xi[1] <- Info$xi[1] * -1
-          Info$yi[1] <- Info$yi[1] * -1
+            if (Info$xi[1] >= 0){
+            
+            #pull valence in opposite direction
+            Info$xi[1] <- (Info$xi[1]) - (range01(Distance_main)) 
+            
+          } else{ #If Info$xi[1] <= 0 (negative)
+            
+            #Pull valence in opposite direction
+            Info$xi[1] <- (Info$xi[1]) - (-(range01(Distance_main)))
+          }
           
-          #Integrate:
+          if (Info$yi[1] >= 0){
+            
+            #pull valence in opposite direction
+            Info$yi[1] <- (Info$yi[1]) - (range01(Distance_main)) 
+            
+          } else{ #If Info$xi[1] <= 0 (negative)
+            
+            #Pull valence in opposite direction
+            Info$yi[1] <- (Info$yi[1]) - (-(range01(Distance_main)))
+          } #Done implementing boomerang effect
+        
+          #Integrate new and reversed information:
           Agents <- Integrate_main(Agents = Agents, 
                                    i = i, 
                                    Info = Info)
@@ -442,8 +461,27 @@ ABM1 <- function(Agents, Iterations, Plot_freq, Bias, Social_posting){
         
         if(Distance_social > Lat_reject){
           
-          Info$xi[2] <- Info$xi[2] * -1
-          Info$yi[2] <- Info$yi[2] * -1
+          if (Info$xi[2] >= 0){
+            
+            #pull valence in opposite direction
+            Info$xi[2] <- (Info$xi[2]) - (range01(Distance_social)) 
+            
+          } else{ #If Info$xi[2] <= 0 (negative)
+            
+            #Pull valence in opposite direction
+            Info$xi[2] <- (Info$xi[2]) - (-(range01(Distance_social)))
+          }
+          
+        # "Flip" y
+          if (Info$yi[2] >= 0){
+            
+            #pull valence in opposite direction
+            Info$yi[2] <- (Info$yi[2]) - (range01(Distance_social)) 
+            
+          } else{ #If Info$xi[1] <= 0 (negative)
+            
+            Info$yi[2] <- (Info$yi[2]) - (-(range01(Distance_social)))
+          } #Done implementing boomerang effect
           
           Social_group <- Integrate_social(Agents = Agents, 
                                            Social_group = Social_group, 
@@ -511,6 +549,8 @@ Out6 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positi
 Out7 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE) #nPop = 200, nMemo = 20, Lat_accept = 0.2, Sharpness = 5, nGroups = 7, lat reject 0.7
 
 Out8 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = FALSE) #nPop = 200, nMemo = 20, Lat_accept = 0.2, Sharpness = 5, nGroups = 7, lat reject 0.7
+
+Out9 <- ABM1(Agents = Agents20, Iterations = 100, Plot_freq = 10, Bias = "Positive", Social_posting = TRUE) #nPop = 100, nMemo = 20, Lat_accept = 0.3, Sharpness = 5, nGroups = 5, bias positive
 
 
 Out2 %>%
