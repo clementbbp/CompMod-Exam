@@ -623,27 +623,6 @@ model8 <- ABM1(Agents = Agents_mod8, Iterations = 400, Plot_freq = 50, Bias = "N
 
 ```
 
-#Save outputs
-```{r}
-#Writing csv of all model outputs so they are not lost
-
-# write.csv(model1, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model1.csv", row.names = FALSE)
-# 
-# write.csv(model2, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model2.csv", row.names = FALSE)
-# 
-# write.csv(model3, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model3.csv", row.names = FALSE)
-# 
-# write.csv(model4, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model4.csv", row.names = FALSE)
-# 
-# write.csv(model5, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model5.csv", row.names = FALSE)
-# 
-# write.csv(model6, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model6.csv", row.names = FALSE)
-# 
-# write.csv(model7, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model7.csv", row.names = FALSE)
-# 
-# write.csv(model8, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model8.csv", row.names = FALSE)
-```
-
 
 #Some more models with greater region of noncommitment
 ```{r}
@@ -718,6 +697,35 @@ Agents_mod12[,8] <- Agents_mod1[,8] #Share column (from model 1)
 Agents_mod12[,9] <- Agents_mod1[,9] #Group column (from model 1)
 
 model12 <- ABM1(Agents = Agents_mod12, Iterations = 400, Plot_freq = 50, Bias = "None", Social_posting = FALSE)
+```
+
+#Save outputs
+```{r}
+#Writing csv of all model outputs so they are not lost
+
+# write.csv(model1, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model1.csv", row.names = FALSE)
+# 
+# write.csv(model2, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model2.csv", row.names = FALSE)
+# 
+# write.csv(model3, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model3.csv", row.names = FALSE)
+# 
+# write.csv(model4, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model4.csv", row.names = FALSE)
+# 
+# write.csv(model5, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model5.csv", row.names = FALSE)
+# 
+# write.csv(model6, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model6.csv", row.names = FALSE)
+# 
+# write.csv(model7, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model7.csv", row.names = FALSE)
+# 
+# write.csv(model8, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model8.csv", row.names = FALSE)
+#
+# write.csv(model9, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model9.csv", row.names = FALSE)
+# 
+# write.csv(model10, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model10.csv", row.names = FALSE)
+#
+# write.csv(model11, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model11.csv", row.names = FALSE)
+# 
+# write.csv(model12, "C:\\Users\\cleme\\Desktop\\4. sem CogSci\\Computational Modelling\\CompMod-Exam\\model12.csv", row.names = FALSE)
 ```
 
 #Combining outputs
